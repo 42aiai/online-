@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンライン大富豪</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="lobby" class="screen">
+        <h1>オンライン大富豪</h1>
+        <div class="lobby-form">
+            <input type="text" id="nickname" placeholder="ニックネームを入力" maxlength="10">
+            <select id="game-limit">
+                <option value="1">1ゲーム</option>
+                <option value="3">3ゲーム</option>
+                <option value="5">5ゲーム</option>
+                <option value="10">10ゲーム</option>
+                <option value="0">無制限</option>
+            </select>
+            <button id="join-game-btn">ゲームに参加</button>
+        </div>
+        <div id="lobby-info">
+            <p class="info">※最初のプレイヤーがホストとなり、ゲーム回数が設定されます。</p>
+            <p class="info">※現在、1部屋のみの簡易実装です。2〜4人で遊べます。</p>
+            <div id="lobby-players"></div>
+        </div>
+    </div>
+
+    <div id="game-board" class="screen hidden">
+        <div id="players-container"></div>
+        <div id="field-container">
+            <h2>場</h2>
+            <div id="field"></div>
+            <p id="system-message"></p>
+        </div>
+        <div id="my-area">
+            <div id="my-info">
+                <span id="my-name"></span> (<span id="my-role"></span>)
+            </div>
+            <div id="my-hand"></div>
+            <div id="actions">
+                <button id="play-btn">選択したカードを出す</button>
+                <button id="pass-btn">パス</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="modal">
+            <h3>ゲームを続けますか？</h3>
+            <p>（無制限モード）</p>
+            <div class="modal-actions">
+                <button id="continue-btn">続ける</button>
+                <button id="end-btn">終了する</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
