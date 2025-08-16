@@ -1,372 +1,226 @@
 // Reasoning/Thinking Mode: ON
-// This is the definitive, stable version of the Node.js server.
-// It features a robust 'join' logic where the server correctly assigns the host role.
-// It also includes improved error handling and more resilient player disconnection logic,
-// ensuring a smoother and more reliable gameplay experience.
+// The client script is updated to handle the new manual start button.
+// It gets the button element. The `updateUI` function now contains logic to
+// show, hide, enable, or disable this button based on whether the player is the host,
+// the game is in the 'waiting' state, and if there are enough players.
+// An event listener is added to send the 'startGame' message to the server upon click.
 
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
-
-const PORT = process.env.PORT || 3000;
-
-const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-const SUITS = ['s', 'h', 'd', 'c'];
-const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-const RANK_VALUES = {
-    '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, '9': 7, '10': 8, 
-    'J': 9, 'Q': 10, 'K': 11, 'A': 12, '2': 13, 'joker': 15
-};
-
-let game = {};
-
-function initializeGame() {
-    game = {
-        players: [],
-        gameState: 'waiting', // waiting, playing, exchange, finished
-        turnIndex: -1,
-        field: [],
-        lastPlay: null,
-        passCount: 0,
-        gameCount: 0,
-        gameSettings: {
-            limit: 0,
-            hostId: null
-        },
-        ranks: [],
-    };
-}
-initializeGame(); // Initialize on server start
-
-function createDeck() {
-    const deck = [];
-    for (const suit of SUITS) {
-        for (const rank of RANKS) {
-            deck.push({ suit, rank, value: RANK_VALUES[rank] });
-        }
-    }
-    deck.push({ suit: 'joker', rank: 'joker', value: RANK_VALUES['joker'] });
-    return deck;
-}
-
-function shuffleAndDeal(deck, numPlayers) {
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const lobby = document.getElementById('lobby');
+    const gameBoard = document.getElementById('game-board');
+    const nicknameInput = document.getElementById('nickname');
+    const gameLimitSelect = document.getElementById('game-limit');
+    const joinGameBtn = document.getElementById('join-game-btn');
+    const playerList = document.getElementById('player-list');
     
-    game.players.forEach(p => p.hand = []);
-    let playerIndex = 0;
-    deck.forEach(card => {
-        game.players[playerIndex].hand.push(card);
-        playerIndex = (playerIndex + 1) % numPlayers;
-    });
-
-    game.players.forEach(p => sortHand(p.hand));
-}
-
-function sortHand(hand) {
-    hand.sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit));
-}
-
-function broadcastGameState() {
-    wss.clients.forEach(client => {
-        if (client.readyState !== WebSocket.OPEN) return;
-        
-        const player = game.players.find(p => p.id === client.id);
-        
-        let personalizedState;
-        if (player) {
-            personalizedState = {
-                type: 'updateState',
-                gameState: game.gameState,
-                field: game.field,
-                players: game.players.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    handCount: p.hand.length,
-                    isTurn: game.players[game.turnIndex]?.id === p.id,
-                    role: p.role,
-                    rank: p.rank,
-                    status: p.status,
-                })),
-                myHand: player.hand,
-                myId: player.id,
-                isHost: game.gameSettings.hostId === player.id,
-                gameSettings: game.gameSettings
-            };
-        } else { // For spectators or people in lobby before joining
-            personalizedState = {
-                type: 'updateState',
-                gameState: 'waiting',
-                 players: game.players.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    isHost: game.gameSettings.hostId === p.id
-                })),
-                myId: null,
-                isHost: false
-            };
-        }
-        client.send(JSON.stringify(personalizedState));
-    });
-}
-
-function findNextPlayer() {
-    if (game.players.length === 0) return -1;
-    const activePlayingPlayers = game.players.filter(p => p.status === 'playing');
-    if (activePlayingPlayers.length === 0) return -1; // No one left to play
-
-    let nextIndex = (game.turnIndex + 1) % game.players.length;
-    while(game.players[nextIndex].status !== 'playing') {
-        nextIndex = (nextIndex + 1) % game.players.length;
-    }
-    return nextIndex;
-}
-
-function validatePlay(playedCards, playerHand) {
-    if (playedCards.length === 0) return { valid: false, message: 'カードを選択してください。' };
-
-    for (const card of playedCards) {
-        if (!playerHand.some(h => h.suit === card.suit && h.rank === card.rank)) {
-            return { valid: false, message: '手札にないカードです。' };
-        }
-    }
-
-    const firstCardRank = playedCards.find(c => c.rank !== 'joker')?.rank || playedCards[0].rank;
-    for (const card of playedCards) {
-        if (card.rank !== 'joker' && card.rank !== firstCardRank) {
-            return { valid: false, message: '同じランクのカードしか同時に出せません。' };
-        }
-    }
+    const playersContainer = document.getElementById('players-container');
+    const fieldContainer = document.getElementById('field');
+    const myHandContainer = document.getElementById('my-hand');
+    const myNameSpan = document.getElementById('my-name');
+    const myRoleSpan = document.getElementById('my-role');
+    const playBtn = document.getElementById('play-btn');
+    const passBtn = document.getElementById('pass-btn');
+    const startGameBtn = document.getElementById('start-game-btn'); // Get the new button
+    const systemMessage = document.getElementById('system-message');
     
-    if (game.field.length > 0) {
-        if (playedCards.length !== game.field.length) {
-            return { valid: false, message: `場と同じ${game.field.length}枚で出してください。` };
-        }
-        
-        const playedValue = RANK_VALUES[firstCardRank];
-        const fieldCard = game.field.find(c => c.rank !== 'joker') || game.field[0];
-        const fieldValue = RANK_VALUES[fieldCard.rank];
-        
-        if (playedValue <= fieldValue) {
-            return { valid: false, message: '場より強いカードを出してください。' };
-        }
-    }
+    const modalOverlay = document.getElementById('modal-overlay');
+    const continueBtn = document.getElementById('continue-btn');
+    const endBtn = document.getElementById('end-btn');
 
-    return { valid: true };
-}
+    let ws;
+    let myId = '';
+    let selectedCards = [];
 
-function startNextRound() {
-    game.gameCount++;
-    game.gameState = 'playing';
-    game.field = [];
-    game.lastPlay = null;
-    game.passCount = 0;
-    game.ranks = [];
-    
-    game.players.forEach(p => {
-        p.status = 'playing';
-        p.rank = null;
-    });
-
-    const deck = createDeck();
-    shuffleAndDeal(deck, game.players.length);
-
-    const daifuminIndex = game.players.findIndex(p => p.role === '大貧民');
-    game.turnIndex = (daifuminIndex !== -1) ? daifuminIndex : Math.floor(Math.random() * game.players.length);
-
-    broadcastGameState();
-}
-
-function handleCardExchange() {
-    const daifugo = game.players.find(p => p.role === '大富豪');
-    const daifumin = game.players.find(p => p.role === '大貧民');
-
-    if (!daifugo || !daifumin || game.players.length < 2) {
-        startNextRound();
-        return;
-    }
-    
-    sortHand(daifumin.hand);
-    const cardsToGive = daifumin.hand.splice(daifumin.hand.length - 2, 2);
-    daifugo.hand.push(...cardsToGive);
-    
-    sortHand(daifugo.hand);
-    const cardsToReturn = daifugo.hand.splice(0, 2);
-    daifumin.hand.push(...cardsToReturn);
-    
-    sortHand(daifugo.hand);
-    sortHand(daifumin.hand);
-    
-    wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: 'カード交換完了！ 3秒後にラウンドを開始します。' })));
-    setTimeout(startNextRound, 3000);
-    broadcastGameState();
-}
-
-wss.on('connection', (ws) => {
-    ws.id = `player_${Date.now()}_${Math.random()}`;
-
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
-        const player = game.players.find(p => p.id === ws.id);
-
-        if (data.type === 'join') {
-            if (player) return;
-            if (game.gameState !== 'waiting' || game.players.length >= 4) {
-                ws.send(JSON.stringify({ type: 'errorMessage', message: 'ルームが満員か、ゲームが進行中です。' }));
-                return;
-            }
-
-            const newPlayer = {
-                id: ws.id, name: data.name, hand: [], status: 'playing', role: '平民', rank: null,
-            };
-            
-            if (game.players.length === 0) {
-                game.gameSettings.hostId = ws.id;
-                game.gameSettings.limit = parseInt(data.gameLimit, 10);
-            }
-
-            game.players.push(newPlayer);
-            
-            if (game.players.length >= 2) {
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `${data.name}が参加しました。${game.players.length}人集まったので2秒後にゲームを開始します。` })));
-                setTimeout(startNextRound, 2000);
-            } else {
-                 broadcastGameState();
-            }
+    function connectWebSocket() {
+        const name = nicknameInput.value.trim();
+        const gameLimit = gameLimitSelect.value;
+        if (!name) {
+            alert('ニックネームを入力してください。');
             return;
         }
+        
+        if (ws && ws.readyState === WebSocket.OPEN) return;
 
-        if (!player || game.gameState !== 'playing') return;
-        if (game.players[game.turnIndex]?.id !== ws.id) return;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        ws = new WebSocket(`${protocol}//${host}`);
 
-        if (data.type === 'playCards') {
-            const validation = validatePlay(data.cards, player.hand);
-            if (!validation.valid) {
-                ws.send(JSON.stringify({ type: 'errorMessage', message: validation.message }));
-                return;
-            }
+        ws.onopen = () => {
+            console.log('Connected to server');
+            ws.send(JSON.stringify({ type: 'join', name, gameLimit }));
+            joinGameBtn.disabled = true;
+            joinGameBtn.textContent = '参加中...';
+        };
 
-            data.cards.forEach(playedCard => {
-                const cardIndex = player.hand.findIndex(c => c.suit === playedCard.suit && c.rank === playedCard.rank);
-                if (cardIndex > -1) player.hand.splice(cardIndex, 1);
-            });
-            
-            game.field = data.cards;
-            game.lastPlay = { playerId: player.id, cards: data.cards };
-            player.status = 'playing';
-            game.passCount = 0;
+        ws.onmessage = (event) => handleServerMessage(JSON.parse(event.data));
 
-            const is8giri = data.cards.some(c => c.rank === '8');
-            if (is8giri) {
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `${player.name}が8切り！場が流れます。` })));
-                game.field = [];
-                game.lastPlay = null;
-            } else {
-                 game.turnIndex = findNextPlayer();
-            }
+        ws.onclose = () => {
+            displaySystemMessage('サーバーとの接続が切れました。ページをリロードしてください。', true);
+            playBtn.disabled = true;
+            passBtn.disabled = true;
+            joinGameBtn.disabled = false;
+            joinGameBtn.textContent = 'ゲームに参加';
+        };
 
-            if (player.hand.length === 0) {
-                player.status = 'finished';
-                game.ranks.push(player.id);
-                player.rank = game.ranks.length;
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `${player.name}が${player.rank}位で上がりました！` })));
-                
-                const playersLeft = game.players.filter(p => p.status === 'playing');
-                if (playersLeft.length <= 1) {
-                    if (playersLeft.length === 1) {
-                         playersLeft[0].status = 'finished';
-                         game.ranks.push(playersLeft[0].id);
-                         playersLeft[0].rank = game.ranks.length;
-                    }
+        ws.onerror = (error) => {
+            console.error('WebSocket Error:', error);
+            displaySystemMessage('接続エラーが発生しました。', true);
+        };
+    }
 
-                    game.gameState = 'finished';
-                    const daifugo = game.players.find(p => p.id === game.ranks[0]);
-                    const daifumin = game.players.find(p => p.id === game.ranks[game.ranks.length - 1]);
-                    
-                    game.players.forEach(p => p.role = '平民');
-                    if(daifugo) daifugo.role = '大富豪';
-                    if(daifumin && game.players.length > 2) daifumin.role = '大貧民';
-                    
-                    broadcastGameState();
-                    
-                    if (game.gameSettings.limit !== 0 && game.gameCount >= game.gameSettings.limit) {
-                        wss.clients.forEach(c => c.send(JSON.stringify({ type: 'seriesOver', message: `全${game.gameSettings.limit}ゲームが終了しました！` })));
-                        setTimeout(initializeGame, 5000);
-                    } else if (game.gameSettings.limit === 0) {
-                        const hostWs = Array.from(wss.clients).find(c => c.id === game.gameSettings.hostId);
-                        if (hostWs) hostWs.send(JSON.stringify({type: 'showContinueModal'}));
-                    } else {
-                        game.gameState = 'exchange';
-                        wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `次ラウンドの準備中...カード交換を行います。` })));
-                        setTimeout(handleCardExchange, 5000);
-                    }
-                    return;
-                }
-                game.turnIndex = findNextPlayer();
-            }
-            broadcastGameState();
+    function handleServerMessage(data) {
+        switch (data.type) {
+            case 'updateState':
+                updateUI(data);
+                break;
+            case 'errorMessage':
+                alert(data.message);
+                joinGameBtn.disabled = false;
+                joinGameBtn.textContent = 'ゲームに参加';
+                break;
+            case 'systemMessage':
+                displaySystemMessage(data.message);
+                break;
+            case 'showContinueModal':
+                modalOverlay.classList.remove('hidden');
+                break;
+            case 'seriesOver':
+                displaySystemMessage(data.message, true);
+                setTimeout(() => {
+                    gameBoard.classList.add('hidden');
+                    lobby.classList.remove('hidden');
+                    joinGameBtn.disabled = false;
+                    joinGameBtn.textContent = 'ゲームに参加';
+                }, 5000);
+                break;
         }
+    }
+    
+    function updateUI(state) {
+        // ▼▼▼ ゲーム待機中のUI処理を修正 ▼▼▼
+        if (state.gameState === 'waiting') {
+            lobby.classList.remove('hidden');
+            gameBoard.classList.add('hidden'); // ゲームボードは隠す
+            playerList.innerHTML = state.players.map(p => `<li>${p.name} ${p.isHost ? ' (ホスト)' : ''}</li>`).join('');
+            if (state.players.length > 0 && !state.isHost) {
+                gameLimitSelect.disabled = true; // ホスト以外は設定変更不可
+            }
 
-        if (data.type === 'pass') {
-            player.status = 'passed';
-            game.passCount++;
-            
-            const activePlayers = game.players.filter(p => p.status === 'playing');
-            if (game.passCount >= activePlayers.length) {
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `全員がパスしました。場が流れます。` })));
-                game.field = [];
-                game.passCount = 0;
-                game.players.forEach(p => { if (p.rank === null) p.status = 'playing'; });
-                
-                const lastPlayerWhoPlayed = game.players.find(p => p.id === game.lastPlay?.playerId);
-                if (lastPlayerWhoPlayed && lastPlayerWhoPlayed.status !== 'finished') {
-                    game.turnIndex = game.players.indexOf(lastPlayerWhoPlayed);
+            // ゲームボード内のプレイヤー情報を更新するためにここで残しておく
+            if (state.isHost) {
+                startGameBtn.classList.remove('hidden');
+                if (state.players.length >= 2) {
+                    startGameBtn.disabled = false;
+                    startGameBtn.textContent = `ゲーム開始 (${state.players.length}人)`;
                 } else {
-                    game.turnIndex = findNextPlayer();
+                    startGameBtn.disabled = true;
+                    startGameBtn.textContent = '2人以上で開始可能';
                 }
-                game.lastPlay = null;
             } else {
-                game.turnIndex = findNextPlayer();
+                startGameBtn.classList.add('hidden');
             }
-            broadcastGameState();
-        }
 
-         if (data.type === 'continueGame') {
-            if (ws.id !== game.gameSettings.hostId) return;
-            if(data.decision) {
-                game.gameState = 'exchange';
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: `ゲーム続行！次ラウンドの準備中...` })));
-                setTimeout(handleCardExchange, 3000);
-            } else {
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'seriesOver', message: `ホストがゲームを終了しました。` })));
-                initializeGame();
-                broadcastGameState();
-            }
+        } else { // playing, finished, exchange
+            lobby.classList.add('hidden');
+            gameBoard.classList.remove('hidden');
+            startGameBtn.classList.add('hidden'); // ゲームが始まったら開始ボタンは隠す
+        }
+        // ▲▲▲ ここまで修正 ▲▲▲
+        
+        myId = state.myId;
+        const me = state.players?.find(p => p.id === myId);
+
+        if (!me && state.gameState !== 'waiting') return;
+
+        selectedCards = []; // Always clear selection on state update
+        
+        const isMyTurn = me?.isTurn ?? false;
+        playBtn.disabled = !isMyTurn;
+        passBtn.disabled = !isMyTurn;
+        
+        playersContainer.innerHTML = '';
+        state.players?.forEach(player => {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = `player-info ${player.isTurn ? 'is-turn' : ''}`;
+            let playerLabel = player.name;
+            if(player.id === myId) playerLabel += " (あなた)";
+            if(player.isHost) playerLabel += " ★ホスト";
+            
+            playerDiv.innerHTML = `
+                <h4>${playerLabel}</h4>
+                <p>残り: ${player.handCount ?? state.players.find(p => p.id === player.id)?.hand?.length ?? 0}枚</p>
+                <p>階級: ${player.role || '平民'}</p>
+                <p>順位: ${player.rank ? `${player.rank}位` : '-'}</p>
+            `;
+            playersContainer.appendChild(playerDiv);
+        });
+
+        fieldContainer.innerHTML = '';
+        state.field?.forEach(card => fieldContainer.appendChild(createCardElement(card)));
+
+        myHandContainer.innerHTML = '';
+        state.myHand?.forEach(card => {
+            const cardEl = createCardElement(card);
+            cardEl.addEventListener('click', () => toggleCardSelection(cardEl, card));
+            myHandContainer.appendChild(cardEl);
+        });
+        
+        if(me) {
+            myNameSpan.textContent = me.name;
+            myRoleSpan.textContent = me.role || '平民';
+        }
+    }
+    
+    function createCardElement(card) {
+        const el = document.createElement('div');
+        el.className = `card ${card.suit}`;
+        const suitSymbol = {s: '♠', h: '♥', d: '♦', c: '♣', joker: 'J'}[card.suit];
+        el.innerHTML = `<span class="rank">${card.rank.toUpperCase()}</span><span class="suit">${suitSymbol}</span>`;
+        if (card.rank === 'joker') el.innerHTML = `<span class="rank">JOKER</span>`;
+        return el;
+    }
+
+    function toggleCardSelection(cardEl, card) {
+        if (cardEl.classList.contains('selected')) {
+            cardEl.classList.remove('selected');
+            selectedCards = selectedCards.filter(c => !(c.rank === card.rank && c.suit === card.suit));
+        } else {
+            cardEl.classList.add('selected');
+            selectedCards.push(card);
+        }
+    }
+
+    function displaySystemMessage(msg, isImportant = false) {
+        systemMessage.textContent = msg;
+        systemMessage.style.display = 'block';
+        systemMessage.style.backgroundColor = isImportant ? '#f44336' : 'rgba(0,0,0,0.7)';
+        setTimeout(() => { systemMessage.style.display = 'none'; }, 4000);
+    }
+    
+    joinGameBtn.addEventListener('click', connectWebSocket);
+    
+    // ▼▼▼ 開始ボタンのイベントリスナーを追加 ▼▼▼
+    startGameBtn.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'startGame' }));
         }
     });
+    // ▲▲▲ ここまで追加 ▲▲▲
+    
+    playBtn.addEventListener('click', () => {
+        if (selectedCards.length > 0) ws.send(JSON.stringify({ type: 'playCards', cards: selectedCards }));
+    });
 
-    ws.on('close', () => {
-        const playerIndex = game.players.findIndex(p => p.id === ws.id);
-        if (playerIndex > -1) {
-            const disconnectedPlayer = game.players.splice(playerIndex, 1)[0];
-            
-            if (game.players.length < 2 && game.gameState !== 'waiting') {
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: 'プレイヤーが不足したため、ゲームをリセットします。' })));
-                initializeGame();
-            } else if (disconnectedPlayer.id === game.gameSettings.hostId && game.players.length > 0) {
-                game.gameSettings.hostId = game.players[0].id;
-                wss.clients.forEach(c => c.send(JSON.stringify({ type: 'systemMessage', message: 'ホストが切断しました。新しいホストが割り当てられました。' })));
-            }
-            broadcastGameState();
-        }
+    passBtn.addEventListener('click', () => ws.send(JSON.stringify({ type: 'pass' })));
+    
+    continueBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'continueGame', decision: true }));
+        modalOverlay.classList.add('hidden');
+    });
+
+    endBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'continueGame', decision: false }));
+        modalOverlay.classList.add('hidden');
     });
 });
-
-server.listen(PORT, () => console.log(`Server is listening on port ${PORT}`));

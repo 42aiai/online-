@@ -23,7 +23,7 @@
         </div>
         <div id="lobby-info">
             <p class="info">※最初のプレイヤーがホストとなり、ゲーム回数が設定されます。</p>
-            <p class="info">※現在、1部屋のみの簡易実装です。2〜4人で遊べます。</p>
+            <p class="info">※ホストが「ゲーム開始」ボタンを押すとスタートします。</p>
             <div id="lobby-players">
                 <h3>待機中のプレイヤー:</h3>
                 <ul id="player-list"></ul>
@@ -44,6 +44,8 @@
             </div>
             <div id="my-hand"></div>
             <div id="actions">
+                <!-- ↓↓↓ このボタンを追加 ↓↓↓ -->
+                <button id="start-game-btn" class="hidden">ゲーム開始</button>
                 <button id="play-btn">選択したカードを出す</button>
                 <button id="pass-btn">パス</button>
             </div>
