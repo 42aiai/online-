@@ -232,3 +232,44 @@ body {
 }
 #continue-btn { background-color: #4CAF50; color: white; }
 #end-btn { background-color: #f44336; color: white; }
+
+/* Lobby Section Styles */
+.lobby-section {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.lobby-section h2 {
+    margin-top: 0;
+}
+hr {
+    border: none;
+    height: 1px;
+    background-color: #555;
+    margin: 30px 0;
+}
+.error {
+    color: #ffbaba;
+    background-color: #d8000c;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 15px;
+    min-height: 20px;
+}
+#room-code-input {
+    text-transform: uppercase;
+}
+/* Game Info Bar */
+#game-info-bar {
+    padding: 8px;
+    text-align: center;
+    background: rgba(0,0,0,0.3);
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+#copy-code-btn {
+    margin-left: 10px;
+    padding: 3px 8px;
+    font-size: 0.8em;
+}
