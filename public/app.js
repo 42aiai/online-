@@ -1,8 +1,8 @@
 // Reasoning/Thinking Mode: ON
-// This is the definitive, stable client-side script.
-// It establishes a persistent WebSocket connection and handles all incoming messages from the server.
-// UI rendering is now more robust, correctly updating the lobby and game board based on the authoritative state sent by the server.
-// This version is designed to be resilient and provide a clear user experience.
+// Reviewing the client-side UI logic. A potential issue is that when in the lobby,
+// the game board is hidden, but the start button (which is inside the game board) still needs
+// to be updated. This version ensures that the start button's state is updated correctly
+// even when the player is viewing the lobby screen.
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const myRoleSpan = document.getElementById('my-role');
     const playBtn = document.getElementById('play-btn');
     const passBtn = document.getElementById('pass-btn');
+    const startGameBtn = document.getElementById('start-game-btn');
     const systemMessage = document.getElementById('system-message');
     
     const modalOverlay = document.getElementById('modal-overlay');
@@ -45,7 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ws = new WebSocket(`${protocol}//${host}`);
 
         ws.onopen = () => {
-            console.log('Connected to server');
             ws.send(JSON.stringify({ type: 'join', name, gameLimit }));
             joinGameBtn.disabled = true;
             joinGameBtn.textContent = '参加中...';
@@ -55,16 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ws.onclose = () => {
             displaySystemMessage('サーバーとの接続が切れました。ページをリロードしてください。', true);
-            playBtn.disabled = true;
-            passBtn.disabled = true;
-            joinGameBtn.disabled = false;
-            joinGameBtn.textContent = 'ゲームに参加';
+            playBtn.disabled = true; passBtn.disabled = true;
+            joinGameBtn.disabled = false; joinGameBtn.textContent = 'ゲームに参加';
         };
-
-        ws.onerror = (error) => {
-            console.error('WebSocket Error:', error);
-            displaySystemMessage('接続エラーが発生しました。', true);
-        };
+        ws.onerror = (error) => console.error('WebSocket Error:', error);
     }
 
     function handleServerMessage(data) {
@@ -96,35 +90,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateUI(state) {
+        myId = state.myId;
+        const me = state.players?.find(p => p.id === myId);
+
+        // --- Screen and Button Visibility Control ---
         if (state.gameState === 'waiting') {
             lobby.classList.remove('hidden');
             gameBoard.classList.add('hidden');
             playerList.innerHTML = state.players.map(p => `<li>${p.name} ${p.isHost ? ' (ホスト)' : ''}</li>`).join('');
-            if (state.players.length > 0) gameLimitSelect.disabled = true;
+            
+            // Allow joining if not in the game yet
+            if (!me) {
+                 joinGameBtn.disabled = false;
+                 joinGameBtn.textContent = 'ゲームに参加';
+            }
+
+            if (state.players.length > 0 && !state.isHost) {
+                gameLimitSelect.disabled = true;
+            }
         } else {
             lobby.classList.add('hidden');
             gameBoard.classList.remove('hidden');
         }
-        
-        myId = state.myId;
-        const me = state.players?.find(p => p.id === myId);
 
-        if (!me && state.gameState !== 'waiting') return;
+        // Host's start button logic (must be handled regardless of screen)
+        if (state.isHost && state.gameState === 'waiting') {
+            startGameBtn.classList.remove('hidden');
+            if (state.players.length >= 2) {
+                startGameBtn.disabled = false;
+                startGameBtn.textContent = `ゲーム開始 (${state.players.length}人)`;
+            } else {
+                startGameBtn.disabled = true;
+                startGameBtn.textContent = '2人以上で開始可能';
+            }
+        } else {
+            startGameBtn.classList.add('hidden');
+        }
 
-        selectedCards = []; // Always clear selection on state update
+        // --- Game Board Rendering ---
+        if (!me) return; // Stop if not a player
         
-        const isMyTurn = me?.isTurn ?? false;
+        selectedCards = [];
+        const isMyTurn = me.isTurn ?? false;
         playBtn.disabled = !isMyTurn;
         passBtn.disabled = !isMyTurn;
         
         playersContainer.innerHTML = '';
         state.players?.forEach(player => {
-            if (player.id === myId) return; // Don't show myself in the top bar
             const playerDiv = document.createElement('div');
             playerDiv.className = `player-info ${player.isTurn ? 'is-turn' : ''}`;
+            let playerLabel = player.name;
+            if (player.id === myId) playerLabel += " (あなた)";
+            if (player.isHost) playerLabel += " ★";
+            
             playerDiv.innerHTML = `
-                <h4>${player.name}</h4>
-                <p>残り: ${player.handCount}枚</p>
+                <h4>${playerLabel}</h4>
+                <p>残り: ${player.handCount ?? 0}枚</p>
                 <p>階級: ${player.role || '平民'}</p>
                 <p>順位: ${player.rank ? `${player.rank}位` : '-'}</p>
             `;
@@ -141,10 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
             myHandContainer.appendChild(cardEl);
         });
         
-        if(me) {
-            myNameSpan.textContent = me.name;
-            myRoleSpan.textContent = me.role || '平民';
-        }
+        myNameSpan.textContent = me.name;
+        myRoleSpan.textContent = me.role || '平民';
     }
     
     function createCardElement(card) {
@@ -174,6 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     joinGameBtn.addEventListener('click', connectWebSocket);
+    
+    startGameBtn.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'startGame' }));
+        }
+    });
     
     playBtn.addEventListener('click', () => {
         if (selectedCards.length > 0) ws.send(JSON.stringify({ type: 'playCards', cards: selectedCards }));
