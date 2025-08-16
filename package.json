@@ -1,7 +1,7 @@
 {
-  "name": "daifugo-online",
+  "name": "daifugo-online-server",
   "version": "1.0.0",
-  "description": "Online Daifugo Game",
+  "description": "Online Daifugo Game with Node.js server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

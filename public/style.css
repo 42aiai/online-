@@ -1,8 +1,3 @@
-/* Reasoning/Thinking Mode: ON
-   This CSS provides a clean, functional UI for the game.
-   It uses Flexbox for layout, defines card styles, and handles visibility of different game screens and modals.
-*/
-
 :root {
     --table-green: #2c6b2f;
     --card-bg: #ffffff;
@@ -61,6 +56,10 @@ body {
 .info {
     font-size: 0.9em;
     color: #ccc;
+}
+#lobby-players ul {
+    list-style: none;
+    padding: 0;
 }
 
 /* Game Board */
