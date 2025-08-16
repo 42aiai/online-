@@ -273,3 +273,28 @@ hr {
     padding: 3px 8px;
     font-size: 0.8em;
 }
+
+/* --- Textbox Style Customization --- */
+
+/* Lobbyの全てのinput要素に適用 */
+.lobby-section input[type="text"] {
+    background-color: rgba(0, 0, 0, 0.3); /* 背景を半透明の黒に */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* 境界線を半透明の白に */
+    color: #f0f0f0; /* 文字色を明るい灰色に */
+    padding: 12px 15px; /* 内側の余白を少し調整 */
+    font-size: 1.1em; /* フォントサイズを少し大きく */
+    border-radius: 5px; /* 角を丸める */
+    transition: all 0.3s ease; /* アニメーションを追加 */
+    outline: none; /* フォーカス時の青い枠線を消す */
+}
+
+/* テキストボックスにカーソルが当たった時のスタイル */
+.lobby-section input[type="text"]:focus {
+    border-color: #4CAF50; /* 境界線の色をテーマカラーの緑に */
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); /* ほのかに光るエフェクトを追加 */
+}
+
+/* プレースホルダー（入力前の薄い文字）のスタイル */
+.lobby-section input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.4); /* プレースホルダーの色をさらに薄く */
+}
