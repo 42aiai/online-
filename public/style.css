@@ -413,3 +413,55 @@ hr {
         padding: 10px 15px;
     }
 }
+
+/* --- Smartphone Responsive Design (Improved Version) --- */
+
+/* 1. 基本的なスマホ・タブレット向けスタイル (幅が768px以下) */
+@media screen and (max-width: 768px) {
+
+    #my-hand {
+        flex-wrap: wrap;       /* カードを折り返す */
+        align-items: flex-start;
+        min-height: 250px;
+        /* 中央揃えだと、はみ出た時に左右に切れるので、左揃えを基本にする */
+        justify-content: flex-start; 
+        /* 左側に少し余白を設け、カードが見切れないようにする */
+        padding-left: 45px; 
+        box-sizing: border-box;
+    }
+
+    #my-hand .card {
+        width: 60px;
+        height: 84px;
+        font-size: 1.2em;
+        flex-shrink: 0;        /* カードが縮むのを防ぐ */
+        margin: 0 -45px;       /* カードの重なり具合を調整 */
+        margin-bottom: 10px;
+    }
+
+    #my-hand .card.selected {
+        margin-bottom: 25px;
+    }
+
+    /* 他のUI要素の調整 */
+    .player-info { padding: 5px; }
+    .player-info h4 { font-size: 0.9em; }
+    .player-info p { font-size: 0.8em; margin: 3px 0; }
+    #actions button { font-size: 1em; padding: 10px 15px; }
+}
+
+/* 2. 特に幅が狭いスマホ向けの追加スタイル (幅が420px以下) */
+@media screen and (max-width: 420px) {
+    #my-hand {
+        /* さらに左の余白を調整 */
+        padding-left: 38px;
+    }
+
+    #my-hand .card {
+        /* カードをさらに小さく、重なりを強くする */
+        width: 50px;
+        height: 70px;
+        font-size: 1em;
+        margin: 0 -40px;
+    }
+}
