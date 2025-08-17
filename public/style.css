@@ -359,3 +359,54 @@ hr {
     box-sizing: border-box; /* paddingを含めてwidth 100%にする */
     margin-bottom: 10px; /* 下に少し余白を追加 */
 }
+
+/* --- Smartphone Responsive Design --- */
+
+/* 画面幅が768px以下（タブレットやスマートフォン）の場合に適用 */
+@media screen and (max-width: 768px) {
+
+    /* 手札全体のコンテナ設定 */
+    #my-hand {
+        flex-wrap: wrap; /* ★最重要：カードを折り返しさせる */
+        align-items: flex-start; /* 上揃えにする */
+        padding-bottom: 10px; /* 下の余白を調整 */
+        min-height: 250px; /* 2段になっても収まるように高さを確保 */
+    }
+
+    /* カード自体の設定 */
+    #my-hand .card {
+        /* 少しカードを小さくして、より多く並べられるようにする */
+        width: 60px;
+        height: 84px;
+        font-size: 1.2em;
+
+        /* 横の重なり具合を少し強くする */
+        margin: 0 -35px;
+        
+        /* ★重要：折り返した行が重ならないように、下に余白を追加 */
+        margin-bottom: 10px;
+    }
+
+    /* カード選択時のポップアップ量を調整 */
+    #my-hand .card.selected {
+        margin-bottom: 25px; /* 元の10px + 15px */
+    }
+
+    /* 他のプレイヤー表示も少し小さくする */
+    .player-info {
+        padding: 5px;
+    }
+    .player-info h4 {
+        font-size: 0.9em;
+    }
+    .player-info p {
+        font-size: 0.8em;
+        margin: 3px 0;
+    }
+
+    /* アクションボタンの文字サイズを調整 */
+    #actions button {
+        font-size: 1em;
+        padding: 10px 15px;
+    }
+}
