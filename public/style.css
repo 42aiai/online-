@@ -465,3 +465,51 @@ hr {
         margin: 0 -40px;
     }
 }
+
+/* --- Smartphone Responsive Design (Final Version) --- */
+
+/* 1. 基本的なスマホ・タブレット向けスタイル (幅が768px以下) */
+@media screen and (max-width: 768px) {
+
+    #my-hand {
+        /* ★重要：再度 justify-content を center に戻します */
+        justify-content: center;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        min-height: 250px;
+        /* ★重要：padding-left を削除し、左右均等なpaddingに変更 */
+        padding: 0 15px; 
+        box-sizing: border-box;
+    }
+
+    #my-hand .card {
+        width: 60px;
+        height: 84px;
+        font-size: 1.2em;
+        flex-shrink: 0;
+        /* ★重要：ネガティブマージンを左右均等に戻します */
+        margin: 0 -25px; 
+        margin-bottom: 10px;
+    }
+
+    #my-hand .card.selected {
+        margin-bottom: 25px;
+    }
+
+    /* 他のUI要素の調整 */
+    .player-info { padding: 5px; }
+    .player-info h4 { font-size: 0.9em; }
+    .player-info p { font-size: 0.8em; margin: 3px 0; }
+    #actions button { font-size: 1em; padding: 10px 15px; }
+}
+
+/* 2. 特に幅が狭いスマホ向けの追加スタイル (幅が420px以下) */
+@media screen and (max-width: 420px) {
+    #my-hand .card {
+        /* カードをさらに小さく、重なりを調整 */
+        width: 50px;
+        height: 70px;
+        font-size: 1em;
+        margin: 0 -20px;
+    }
+}
